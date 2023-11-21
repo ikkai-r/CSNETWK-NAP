@@ -57,7 +57,11 @@ public class Client {
                                     dosWriter.writeUTF(input);
                                     sendFile(inputArr[1], disReader, dosWriter);
                                 }
-                                case "/register", "/dir" -> {
+                                case "/dir" -> {
+                                    dosWriter.writeUTF(input);
+                                    getDirectory(disReader);
+                                }
+                                case "/register"-> {
                                     if (clientSocket == null) {
                                         System.out.println("Error: Please connect to the server first.");
                                     } else {
@@ -145,5 +149,14 @@ public class Client {
             fileOS.close();
         }
         System.out.println(disReader.readUTF());
+    }
+
+    private static void getDirectory(DataInputStream disReader) throws IOException {
+        System.out.println("Server Directory");
+        int fileLength = disReader.readInt();
+
+        for (int i = 0; i < fileLength; i++) {
+            System.out.println(disReader.readUTF());
+        }
     }
 }

@@ -60,7 +60,7 @@ public class ServerApp extends Thread{
             }
             case "/dir" -> {
                 System.out.println("Client " + clientNo + " is checking directory.");
-                dosWriter.writeUTF("Directory contents: file1.txt, file2.txt");
+                getDirectory(dosWriter);
             }
             case "/get" -> {
                 System.out.println("Client " + clientNo + " is getting " + message[1]);
@@ -126,6 +126,26 @@ public class ServerApp extends Thread{
 
             //close the file
             fileOS.close();
+        }
+    }
+    private static void getDirectory(DataOutputStream dosWriter) throws IOException {
+        String folderPath = new File("").getAbsolutePath() + "\\serverFiles";
+        File folder = new File(folderPath);
+
+        System.out.println(folderPath);
+        if (folder.exists() && folder.isDirectory()) {
+            File[] files = folder.listFiles();
+
+            if (files != null) {
+                dosWriter.writeInt(files.length);
+                for (File file : files) {
+                    if (file.isFile()) {
+                        dosWriter.writeUTF(file.getName());
+                    }
+                }
+            }
+        } else {
+            System.out.println("The serverFiles folder does not exist or is not a directory.");
         }
     }
 }
