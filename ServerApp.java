@@ -30,9 +30,7 @@ public class ServerApp extends Thread{
     }
     private void processClientMessage(String[] message, DataOutputStream dosWriter, DataInputStream disReader) throws IOException {
         switch (message[0]) {
-            case "/join" -> {
-                dosWriter.writeUTF("Connection to the File Exchange Server is Succesful");
-            }
+            case "/join" -> dosWriter.writeUTF("Connection to the File Exchange Server is Succesful");
             case "/leave" -> {
                 System.out.println("Client " + clientNo + " is leaving.");
                 dosWriter.writeUTF("Connection closed. Thank you!");
@@ -45,7 +43,6 @@ public class ServerApp extends Thread{
             case "/register" -> {
                 alias = message[1];
                 System.out.println("Client " + clientNo  + " is registering.");
-
                 if (!Server.isAliasRegistered(alias)) {
                     Server.registerAlias(alias);
                     dosWriter.writeUTF("Welcome " + alias);
@@ -65,9 +62,7 @@ public class ServerApp extends Thread{
             case "/get" -> {
                 System.out.println("Client " + clientNo + " is getting " + message[1]);
                 sendFile(message[1], dosWriter);
-
             }
-            default -> dosWriter.writeUTF("Invalid command. Type /? for help.");
         }
     }
 
@@ -124,6 +119,7 @@ public class ServerApp extends Thread{
             fileOS.close();
         }
     }
+
     private static void getDirectory(DataOutputStream dosWriter) throws IOException {
         String folderPath = new File("").getAbsolutePath() + "\\serverFiles";
         File folder = new File(folderPath);
