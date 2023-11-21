@@ -1,6 +1,9 @@
 import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 public class Server {
     private static final int PORT = 8080;
     private static List<String> registeredAliases = new ArrayList<>();
@@ -31,5 +34,11 @@ public class Server {
     }
     public static void unregisterAlias(String alias) {
         registeredAliases.remove(alias);
+    }
+    public static String log() {
+        LocalDateTime timestamp = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        return  "<" + timestamp.format(formatter) + ">";
     }
 }
