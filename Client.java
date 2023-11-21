@@ -69,6 +69,7 @@ public class Client {
                                         System.out.println(disReader.readUTF());
                                     }
                                 }
+                                case "/?" -> printCmds();
                             }
                         } else {
                             System.out.println("Error: Command parameters do not match or are not allowed.");
@@ -157,6 +158,19 @@ public class Client {
 
         for (int i = 0; i < fileLength; i++) {
             System.out.println(disReader.readUTF());
+        }
+    }
+
+    private static void printCmds() {
+        String[] cmds = {"/join <server_ip_add> <port>", "/leave", "/register <handle>",
+                         "/store <filename>", "/dir", "/get <filename>", "/?"};
+        String[] desc = {"Connect to the server application", "Disconnect to the server application",
+                         "Register a unique handle or alias", "Send file to server",
+                         "Request directory file list from a server", "Fetch a file from a server",
+                         "Request command help to output all Input Syntax commands for references"};
+
+        for (int i = 0; i < cmds.length; i++) {
+            System.out.println(cmds[i] + ": " + desc[i]);
         }
     }
 }

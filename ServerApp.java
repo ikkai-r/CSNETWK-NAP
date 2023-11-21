@@ -67,10 +67,6 @@ public class ServerApp extends Thread{
                 sendFile(message[1], dosWriter);
 
             }
-            case "/?" -> {
-                System.out.println("Client " + clientNo + " is requesting help.");
-                dosWriter.writeUTF("Available commands: /register, /store, /dir, /get, /leave");
-            }
             default -> dosWriter.writeUTF("Invalid command. Type /? for help.");
         }
     }
