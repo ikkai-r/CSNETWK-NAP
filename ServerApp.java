@@ -53,7 +53,8 @@ public class ServerApp extends Thread{
             case "/store" -> {
                 System.out.println("Client " + clientNo + " is storing " + message[1]);
                 receiveFile(message[1], disReader);
-                dosWriter.writeUTF(alias + Server.log() + ": Uploaded " +  message[1]);
+                dosWriter.writeUTF(alias + Server.log() + ": Uploaded ");
+                System.out.println("p6");
             }
             case "/dir" -> {
                 System.out.println("Client " + clientNo + " is checking directory.");
@@ -62,6 +63,7 @@ public class ServerApp extends Thread{
             case "/get" -> {
                 System.out.println("Client " + clientNo + " is getting " + message[1]);
                 sendFile(message[1], dosWriter);
+
             }
         }
     }
@@ -72,13 +74,16 @@ public class ServerApp extends Thread{
 
         File file = new File(filePath);
 
+        System.out.println("g1");
         if (file.exists()) {
             FileInputStream fileIS = new FileInputStream(file);
             int bytes;
 
+            System.out.println("g2");
             //send file's length to client
             dosWriter.writeLong(file.length());
 
+            System.out.println("g3");
             //segment the file into chunks
             byte[] buffer = new byte[4 * 1024];
 
@@ -87,10 +92,12 @@ public class ServerApp extends Thread{
                 dosWriter.flush();
             }
 
+            System.out.println("g4");
             //close the file
             fileIS.close();
 
             dosWriter.writeUTF("File received from Server: " + fileName);
+            System.out.println("g5");
         } else {
             dosWriter.writeLong(-1);
             dosWriter.writeUTF("Error: File not found in the server.");
@@ -118,6 +125,7 @@ public class ServerApp extends Thread{
             //close the file
             fileOS.close();
         }
+        System.out.println("p5");
     }
 
     private static void getDirectory(DataOutputStream dosWriter) throws IOException {
