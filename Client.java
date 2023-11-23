@@ -142,16 +142,12 @@ public class Client {
 
     private static void receiveFile(String fileName, DataInputStream disReader) throws IOException{
         //read file length from server
-        System.out.println("g1");
         long fileSize = disReader.readLong();
-        System.out.println(fileSize);
         if (fileSize > 0) {
             String filePath = new File("").getAbsolutePath();
             filePath = filePath.concat("\\clientFiles\\" + fileName);
             FileOutputStream fileOS = new FileOutputStream(filePath);
             int bytes;
-
-            System.out.println("g2");
 
             //segment the file into chunks
             byte[] buffer = new byte[4 * 1024];
@@ -161,14 +157,11 @@ public class Client {
                 fileOS.write(buffer, 0, bytes);
                 fileSize -= bytes;
             }
-            System.out.println("g3");
 
             //close the file
             fileOS.close();
         }
-        System.out.println("g4");
         System.out.println(disReader.readUTF());
-        System.out.println("g5");
     }
 
     private static void getDirectory(DataInputStream disReader) throws IOException {
