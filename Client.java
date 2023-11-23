@@ -132,8 +132,7 @@ public class Client {
 
             //close the file
             fileIS.close();
-            System.out.println("file uploaded");
-            System.out.println(disReader.readUTF() + fileName);
+            System.out.println(disReader.readUTF());
         } else {
             dosWriter.writeLong(-1);
             System.out.println("Error: File not found.");

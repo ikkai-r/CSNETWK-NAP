@@ -117,7 +117,7 @@ public class ServerApp extends Thread{
             //close the file
             fileOS.close();
 
-            dosWriter.writeUTF(alias + Server.log() + ": Uploaded ");
+            dosWriter.writeUTF(alias + Server.log() + ": Uploaded " + fileName);
         }
     }
 
