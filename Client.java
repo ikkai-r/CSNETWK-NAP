@@ -1,53 +1,52 @@
 import java.util.Scanner;
-import java.net.*;
 import java.io.*;
+import java.net.*;
 
 public class Client {
-    public static void main(String[] args) throws Exception {
-        Scanner scanner = new Scanner(System.in);
-        String greeting = null;
-        Socket clientSocket = null;
-        DataInputStream disReader = null;
-        DataOutputStream dosWriter = null;
+    private String greeting = null;
+    private Socket clientSocket;
+    private DataInputStream disReader;
+    private DataOutputStream dosWriter;
+    private BufferedReader bReader;
+    private BufferedWriter bWriter;
+    private String alias = null;
 
-        System.out.println("Client is ready to connect to a server");
-        boolean isRunning = true;
+    public Client(Socket socket) {
         try {
-            while(isRunning) {
-                System.out.print("Input: ");
-                String input = scanner.nextLine();
-                String[] inputArr = input.split(" ");
+            this.clientSocket = socket;
+            this.dosWriter = new DataOutputStream(this.clientSocket.getOutputStream());
+            this.disReader = new DataInputStream(this.clientSocket.getInputStream());
+            this.bWriter = new BufferedWriter(new OutputStreamWriter(this.clientSocket.getOutputStream()));
+            this.bReader = new BufferedReader(new InputStreamReader(this.clientSocket.getInputStream()));
+        } catch(IOException e) {
+            System.out.println("Calling 3");
+            closeEverything(clientSocket, dosWriter, disReader, bWriter, bReader);
+        }
+    }
 
+    public void getCommand() {
+        try {
+            Scanner scanner = new Scanner(System.in);
+            String input;
+            String[] inputArr;
+            while(clientSocket.isConnected()) {
+                input = scanner.nextLine();
+                inputArr = input.split(" ");
+
+                // Assumes client is already connected to the server
                 if (validateInput(inputArr)) {
                     switch (inputArr[0]) {
                         case "/join" -> {
-                            try {
-                                if (clientSocket == null) {
-                                    clientSocket = new Socket(inputArr[1], Integer.parseInt(inputArr[2]));
-                                    disReader = new DataInputStream(clientSocket.getInputStream());
-                                    dosWriter = new DataOutputStream(clientSocket.getOutputStream());
-                                    dosWriter.writeUTF(input);
-                                    System.out.println(disReader.readUTF());
-                                } else {
-                                    System.out.println("Error: You're already connected to the server.");
-                                }
-                            } catch (Exception e) {
-                                System.out.println("Error: Connection to the Server has failed! Please check IP Address and Port Number.");
-                            }
+                            System.out.println("Error: You're already connected to the server.");
                         }
                         case "/leave" -> {
-                            if (clientSocket == null) {
-                                System.out.println("Error: Disconnection failed. Please connect to the server first.");
-                            } else {
-                                isRunning = false;
-                                dosWriter.writeUTF(input);
-                                System.out.println(disReader.readUTF());
-                            }
+                            dosWriter.writeUTF(input);
+                            System.out.println(disReader.readUTF());
+                            System.out.println("Calling 2");
+                            closeEverything(clientSocket, dosWriter, disReader, bWriter, bReader);
                         }
                         case "/get" -> {
-                            if (clientSocket == null) {
-                                System.out.println("Error: Please connect to the server first.");
-                            } else if (greeting == null) {
+                            if (greeting == null) {
                                 System.out.println("Error: Please register to the server first.");
                             } else {
                                 dosWriter.writeUTF(input);
@@ -55,9 +54,7 @@ public class Client {
                             }
                         }
                         case "/store" -> {
-                            if (clientSocket == null) {
-                                System.out.println("Error: Please connect to the server first.");
-                            } else if (greeting == null) {
+                            if (greeting == null) {
                                 System.out.println("Error: Please register to the server first.");
                             } else {
                                 dosWriter.writeUTF(input);
@@ -65,21 +62,19 @@ public class Client {
                             }
                         }
                         case "/dir" -> {
-                            if (clientSocket == null) {
-                                System.out.println("Error: Please connect to the server first.");
-                            } else {
-                                dosWriter.writeUTF(input);
-                                getDirectory(disReader);
-                            }
+                            dosWriter.writeUTF(input);
+                            getDirectory(disReader);
                         }
                         case "/register" -> {
-                            if (clientSocket == null) {
-                                System.out.println("Error: Please connect to the server first.");
-                            } else if (greeting != null) {
+                            if (greeting != null) {
                                 System.out.println("Error: You're already registered to the server.");
                             } else {
+                                this.alias = inputArr[1];
+                                System.out.println("Sending registration to Server.");
                                 dosWriter.writeUTF(input);
+                                System.out.println("Receiving greeting.");
                                 greeting = disReader.readUTF();
+                                System.out.println("Greeting received");
                                 System.out.println(greeting);
                             }
                         }
@@ -90,11 +85,76 @@ public class Client {
                     System.out.println("Error: Command parameters do not match or are not allowed.");
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if(clientSocket != null) {
-                clientSocket.close();
+        } catch(IOException e) {
+            System.out.println("Calling 1");
+            closeEverything(clientSocket, dosWriter, disReader, bWriter, bReader);
+        }
+    }
+
+    public void listenForMessageFromServer() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String messageFromServer;
+                while(clientSocket.isConnected()) {
+                    try {
+                        messageFromServer = bReader.readLine();
+                        System.out.println(messageFromServer);
+                    } catch(IOException e) {
+                        System.out.println("Calling 4");
+                        closeEverything(clientSocket, dosWriter, disReader, bWriter, bReader);
+                    }
+                }   
+            }
+        }).start();
+    }
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        Boolean isConnectedToServer = false;
+        String input;
+        String[] inputArr;
+        while(!isConnectedToServer) {
+            input = scanner.nextLine();
+            inputArr = input.split(" ");
+
+            // Client needs to join first before we create a Client instance
+            if (validateInput(inputArr)) {
+                switch (inputArr[0]) {
+                    case "/join" -> {
+                        try {
+                            String ipAddress = inputArr[1];
+                            int port = Integer.parseInt(inputArr[2]);
+                            Socket clientSocket = new Socket(ipAddress, port);
+                            Client client = new Client(clientSocket);
+                            isConnectedToServer = true;
+                            System.out.println("You are connected to the Server");
+                            client.listenForMessageFromServer();
+                            client.getCommand();
+                        } catch (Exception e) {
+                            System.out.println("Error: Connection to the Server has failed! Please check IP Address and Port Number.");
+                        }
+                    }
+                    case "/leave" -> {
+                        System.out.println("Error: Disconnection failed. Please connect to the server first.");
+                    }
+                    case "/get" -> {
+                        System.out.println("Error: Please connect to the server first.");
+                    }
+                    case "/store" -> {
+                        System.out.println("Error: Please connect to the server first.");
+                    }
+                    case "/dir" -> {
+                        System.out.println("Error: Please connect to the server first.");
+                    }
+                    case "/register" -> {
+                        System.out.println("Error: Please connect to the server first.");
+                    }
+                    case "/?" -> printCmds();
+                    default -> System.out.println("Error: Command not found.");
+                }
+            } else {
+                System.out.println("Error: Command parameters do not match or are not allowed.");
             }
         }
     }
@@ -132,7 +192,8 @@ public class Client {
 
             //close the file
             fileIS.close();
-            System.out.println(disReader.readUTF());
+            System.out.println("file uploaded");
+            System.out.println(disReader.readUTF() + fileName);
         } else {
             dosWriter.writeLong(-1);
             System.out.println("Error: File not found.");
@@ -182,6 +243,33 @@ public class Client {
 
         for (int i = 0; i < cmds.length; i++) {
             System.out.println(cmds[i] + ": " + desc[i]);
+        }
+    }
+
+    public void closeEverything(Socket clientServerSocket, DataOutputStream dosWriter, DataInputStream disReader, BufferedWriter bWriter, BufferedReader bReader) {
+        try {
+            if(dosWriter != null) {
+                dosWriter.close();
+            }
+
+            if(disReader != null) {
+                disReader.close();
+            }
+
+            if(bWriter != null) {
+                bWriter.close();
+            }
+
+            if(bReader != null) {
+                bReader.close();
+            }
+
+            if(clientServerSocket != null) {
+                clientServerSocket.close();
+            }
+            System.out.println("Connection ended.");
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

@@ -1,44 +1,56 @@
+import java.io.IOException;
 import java.net.*;
-import java.util.ArrayList;
-import java.util.List;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class Server {
-    private static final int PORT = 8080;
-    private static List<String> registeredAliases = new ArrayList<>();
-    public static void main(String[] args) throws Exception {
-        //Listen to port
-        ServerSocket server = new ServerSocket(PORT);
+    private ServerSocket serverSocket;
+    private int count = 0;
 
-        int count = 0;
-        System.out.println("Server Started...");
+    public Server (ServerSocket serverSocket) {
+        this.serverSocket = serverSocket;
+    }
 
-        while (true) {
-            count++;
+    public void startServer() {
+        try {
+            System.out.println("Server started. Waiting for clients");
+            while(!serverSocket.isClosed()) {
+                count++;
 
-            //Accept requests and wait until client connects
-            Socket serverClientSocket = server.accept();
-            System.out.println("Client " + count);
+                Socket socket = serverSocket.accept();
+                System.out.println("New Client has connected!");
 
-            ServerApp sa = new ServerApp(serverClientSocket, count);
-            sa.start();
+                ServerWorker serverWorker = new ServerWorker(socket, count);
+
+                Thread thread = new Thread(serverWorker);
+                thread.start();
+            }
+        } catch(IOException e) {
+            e.printStackTrace();
         }
     }
-    public static boolean isAliasRegistered(String alias) {
-        return registeredAliases.contains(alias);
+
+    public static void main(String[] args) throws IOException {
+        int PORT = 8080;
+        ServerSocket serverSocket = new ServerSocket(PORT);
+        Server server = new Server(serverSocket);
+        server.startServer();
     }
 
-    public static void registerAlias(String alias) {
-        registeredAliases.add(alias);
-    }
-    public static void unregisterAlias(String alias) {
-        registeredAliases.remove(alias);
-    }
     public static String log() {
         LocalDateTime timestamp = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         return  "<" + timestamp.format(formatter) + ">";
+    }
+
+    public void closeServerSocket() {
+        try {
+            if(serverSocket != null) {
+                serverSocket.close();
+            }
+        } catch(IOException e) {
+            e.printStackTrace();
+        }
     }
 }
