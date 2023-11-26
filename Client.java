@@ -103,6 +103,7 @@ public class Client {
                     } catch(IOException e) {
                         System.out.println("Calling 4");
                         closeEverything(clientSocket, dosWriter, disReader, bWriter, bReader);
+                        break;
                     }
                 }   
             }
