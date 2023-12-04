@@ -8,10 +8,9 @@ public class ServerWorker implements Runnable{
     private Socket serverClientSocket;
     private DataOutputStream dosWriter;
     private DataInputStream disReader;
-    private BufferedWriter bWriter;
-    private BufferedReader bReader;
     private int clientNo;
-    private String clientAlias;
+    private ArrayList<String> clientAliasList = new ArrayList<>();
+    private String activeAlias;
 
     public ServerWorker(Socket inSocket, int clientNo) {
         try {
@@ -19,15 +18,13 @@ public class ServerWorker implements Runnable{
             this.clientNo = clientNo;
             this.dosWriter = new DataOutputStream(serverClientSocket.getOutputStream());
             this.disReader = new DataInputStream(serverClientSocket.getInputStream());
-            this.bWriter = new BufferedWriter(new OutputStreamWriter(serverClientSocket.getOutputStream()));
-            this.bReader = new BufferedReader(new InputStreamReader(serverClientSocket.getInputStream()));
 
             // adds this instance to the list of serverWorkers
             serverWorkers.add(this);
             broadcastMessage("A client has entered the server.");
             
         } catch(IOException e) {
-            closeEverything(serverClientSocket, dosWriter, disReader, bWriter, bReader);
+            closeEverything(serverClientSocket, dosWriter, disReader);
         }
     }
     
@@ -40,7 +37,7 @@ public class ServerWorker implements Runnable{
                 clientCommand = disReader.readUTF().split(" ");
                 processClientCommand(clientCommand, dosWriter, disReader);
             } catch (IOException e) {
-                closeEverything(serverClientSocket, dosWriter, disReader, bWriter, bReader);
+                closeEverything(serverClientSocket, this.dosWriter, this.disReader);
                 break;
             }
         }
@@ -51,32 +48,22 @@ public class ServerWorker implements Runnable{
             case "/leave" -> {
                 System.out.println("Client " + clientNo + " is leaving.");
                 dosWriter.writeUTF("Connection closed. Thank you!");
-                //dosWriter.writeUTF("Connection closed. Thank you!");
-                closeEverything(serverClientSocket, dosWriter, disReader, bWriter, bReader);
+                closeEverything(serverClientSocket, dosWriter, disReader);
             }
+
             case "/register" -> {
+                System.out.println("Registering");
                 String alias = command[1];
                 System.out.println("Client " + this.clientNo  + " is registering.");
                 registerAlias(alias);
-                System.out.println("Sending greeting to client.");
-                dosWriter.writeUTF("Welcome");
-                System.out.println("Sent greeting to client.");
-                
-                /*
-                if (!isAliasRegistered(alias)) {
-                    registerAlias(alias);
-                    dosWriter.writeUTF("Welcome " + this.clientAlias);
-                } else {
-                    dosWriter.writeUTF("Error: Registration failed. Handle or alias already exists.");
-                }
-
-                */
+                dosWriter.writeUTF("Greeting Sent. Welcome " + this.activeAlias);
+                System.out.println("Sent Greeting");
             }
-            /*
+
             case "/store" -> {
-                String message = this.clientAlias + " is storing " + command[1];
+                String message = this.activeAlias + " is storing " + command[1];
                 System.out.println(message);
-                receiveFile(command[1], dosWriter, disReader, this.clientAlias);
+                receiveFile(command[1], dosWriter, disReader, this.activeAlias);
                 broadcastMessage(message);
             }
             case "/dir" -> {
@@ -87,28 +74,13 @@ public class ServerWorker implements Runnable{
                 System.out.println("Client " + this.clientNo + " is getting " + command[1]);
                 sendFile(command[1], dosWriter);
             }
-            */
         }
     }
-
-    /* 
-    public boolean isAliasRegistered(String alias) {
-        boolean isRegistered = false;
-        for(ServerWorker worker : serverWorkers) {
-            if(worker.clientAlias != null) {
-                if(worker.clientAlias.equals(alias)) {
-                    isRegistered = true;
-                }
-            }    
-        }
-        return isRegistered;
-    }
-
-    */
 
     public void registerAlias(String alias) {
-        this.clientAlias = alias;
-        System.out.println("Alias registered");
+        this.clientAliasList.add(alias);
+        this.activeAlias = alias;
+        System.out.println("Alias registered. Their current alias name is: " + this.activeAlias + ".");
     }
 
     private void sendFile(String fileName, DataOutputStream dosWriter) throws IOException {
@@ -121,7 +93,10 @@ public class ServerWorker implements Runnable{
             int bytes;
 
             //send file's length to client
+            System.out.println("File Size to send: " + file.length());
             dosWriter.writeLong(file.length());
+            dosWriter.flush();
+            System.out.println("Send File Size");
 
             //segment the file into chunks
             byte[] buffer = new byte[4 * 1024];
@@ -175,7 +150,7 @@ public class ServerWorker implements Runnable{
             File[] files = folder.listFiles();
 
             if (files != null) {
-                dosWriter.writeInt(files.length);
+                dosWriter.writeUTF("Server Directory");
                 for (File file : files) {
                     if (file.isFile()) {
                         dosWriter.writeUTF(file.getName());
@@ -190,11 +165,9 @@ public class ServerWorker implements Runnable{
     private void broadcastMessage(String message) {
         for (ServerWorker worker : serverWorkers) {
             try {
-                worker.bWriter.write(message);
-                worker.bWriter.newLine();
-                worker.bWriter.flush();
+                worker.dosWriter.writeUTF(message);
             } catch (IOException e) {
-                closeEverything(serverClientSocket, dosWriter, disReader, bWriter, bReader);
+                closeEverything(serverClientSocket, dosWriter, disReader);
             }
         }
     }
@@ -204,7 +177,7 @@ public class ServerWorker implements Runnable{
         broadcastMessage("Client" + clientNo + "left the server.");
     }
 
-    public void closeEverything(Socket clientServerSocket, DataOutputStream dosWriter, DataInputStream disReader, BufferedWriter bWriter, BufferedReader bReader) {
+    public void closeEverything(Socket clientServerSocket, DataOutputStream dosWriter, DataInputStream disReader) {
         disconnectClient();
         try {
             if(dosWriter != null) {
@@ -213,14 +186,6 @@ public class ServerWorker implements Runnable{
 
             if(disReader != null) {
                 disReader.close();
-            }
-
-            if(bWriter != null) {
-                bWriter.close();
-            }
-
-            if(bReader != null) {
-                bReader.close();
             }
 
             if(clientServerSocket != null) {

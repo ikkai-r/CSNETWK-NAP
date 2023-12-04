@@ -3,12 +3,9 @@ import java.io.*;
 import java.net.*;
 
 public class Client {
-    private String greeting = null;
     private Socket clientSocket;
     private DataInputStream disReader;
     private DataOutputStream dosWriter;
-    private BufferedReader bReader;
-    private BufferedWriter bWriter;
     private String alias = null;
 
     public Client(Socket socket) {
@@ -16,11 +13,8 @@ public class Client {
             this.clientSocket = socket;
             this.dosWriter = new DataOutputStream(this.clientSocket.getOutputStream());
             this.disReader = new DataInputStream(this.clientSocket.getInputStream());
-            this.bWriter = new BufferedWriter(new OutputStreamWriter(this.clientSocket.getOutputStream()));
-            this.bReader = new BufferedReader(new InputStreamReader(this.clientSocket.getInputStream()));
         } catch(IOException e) {
-            System.out.println("Calling 3");
-            closeEverything(clientSocket, dosWriter, disReader, bWriter, bReader);
+            closeEverything(clientSocket, dosWriter, disReader);
         }
     }
 
@@ -39,45 +33,41 @@ public class Client {
                         case "/join" -> {
                             System.out.println("Error: You're already connected to the server.");
                         }
+
+                        case "/register" -> {
+                            System.out.println("Registering");
+                            dosWriter.writeUTF(input);
+                            this.alias = inputArr[1];
+                            System.out.println("Done");
+                        }
+        
                         case "/leave" -> {
                             dosWriter.writeUTF(input);
-                            System.out.println(disReader.readUTF());
-                            System.out.println("Calling 2");
-                            closeEverything(clientSocket, dosWriter, disReader, bWriter, bReader);
+                            closeEverything(clientSocket, dosWriter, disReader);
                         }
+
                         case "/get" -> {
-                            if (greeting == null) {
+                            if (this.alias == null) {
                                 System.out.println("Error: Please register to the server first.");
                             } else {
                                 dosWriter.writeUTF(input);
                                 receiveFile(inputArr[1], disReader);
                             }
                         }
+
                         case "/store" -> {
-                            if (greeting == null) {
+                            if (this.alias == null) {
                                 System.out.println("Error: Please register to the server first.");
                             } else {
                                 dosWriter.writeUTF(input);
                                 sendFile(inputArr[1], disReader, dosWriter);
                             }
                         }
+
                         case "/dir" -> {
                             dosWriter.writeUTF(input);
-                            getDirectory(disReader);
                         }
-                        case "/register" -> {
-                            if (greeting != null) {
-                                System.out.println("Error: You're already registered to the server.");
-                            } else {
-                                this.alias = inputArr[1];
-                                System.out.println("Sending registration to Server.");
-                                dosWriter.writeUTF(input);
-                                System.out.println("Receiving greeting.");
-                                greeting = disReader.readUTF();
-                                System.out.println("Greeting received");
-                                System.out.println(greeting);
-                            }
-                        }
+                        
                         case "/?" -> printCmds();
                         default -> System.out.println("Error: Command not found.");
                     }
@@ -87,7 +77,7 @@ public class Client {
             }
         } catch(IOException e) {
             System.out.println("Calling 1");
-            closeEverything(clientSocket, dosWriter, disReader, bWriter, bReader);
+            closeEverything(clientSocket, dosWriter, disReader);
         }
     }
 
@@ -95,26 +85,51 @@ public class Client {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                String messageFromServer;
+                String message;
+                
                 while(clientSocket.isConnected()) {
                     try {
-                        messageFromServer = bReader.readLine();
-                        System.out.println(messageFromServer);
+                        message = disReader.readUTF();
+                        System.out.println(message);
                     } catch(IOException e) {
-                        System.out.println("Calling 4");
-                        closeEverything(clientSocket, dosWriter, disReader, bWriter, bReader);
+                        closeEverything(clientSocket, dosWriter, disReader);
                         break;
                     }
-                }   
+                }
             }
         }).start();
     }
 
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
+    public void closeEverything(Socket clientServerSocket, DataOutputStream dosWriter, DataInputStream disReader) {
+        try {
+            if(dosWriter != null) {
+                dosWriter.close();
+            }
+
+            if(disReader != null) {
+                disReader.close();
+            }
+
+            if(clientServerSocket != null) {
+                clientServerSocket.close();
+            }
+
+            System.out.println("Connection ended.");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) throws IOException{
         Boolean isConnectedToServer = false;
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Welcome Client");
+
         String input;
         String[] inputArr;
+
+        Socket clientSocket;
+
         while(!isConnectedToServer) {
             input = scanner.nextLine();
             inputArr = input.split(" ");
@@ -126,12 +141,12 @@ public class Client {
                         try {
                             String ipAddress = inputArr[1];
                             int port = Integer.parseInt(inputArr[2]);
-                            Socket clientSocket = new Socket(ipAddress, port);
+                            clientSocket = new Socket(ipAddress, port);
                             Client client = new Client(clientSocket);
-                            isConnectedToServer = true;
-                            System.out.println("You are connected to the Server");
                             client.listenForMessageFromServer();
                             client.getCommand();
+                            isConnectedToServer = true;
+                            System.out.println("You are connected to the Server");
                         } catch (Exception e) {
                             System.out.println("Error: Connection to the Server has failed! Please check IP Address and Port Number.");
                         }
@@ -194,7 +209,6 @@ public class Client {
             //close the file
             fileIS.close();
             System.out.println("file uploaded");
-            System.out.println(disReader.readUTF() + fileName);
         } else {
             dosWriter.writeLong(-1);
             System.out.println("Error: File not found.");
@@ -203,7 +217,9 @@ public class Client {
 
     private static void receiveFile(String fileName, DataInputStream disReader) throws IOException{
         //read file length from server
+        System.out.println("Getting File Size");
         long fileSize = disReader.readLong();
+        System.out.println("File Size: " + fileSize);
         if (fileSize > 0) {
             String filePath = new File("").getAbsolutePath();
             filePath = filePath.concat("\\clientFiles\\" + fileName);
@@ -222,16 +238,6 @@ public class Client {
             //close the file
             fileOS.close();
         }
-        System.out.println(disReader.readUTF());
-    }
-
-    private static void getDirectory(DataInputStream disReader) throws IOException {
-        System.out.println("Server Directory");
-        int fileLength = disReader.readInt();
-
-        for (int i = 0; i < fileLength; i++) {
-            System.out.println(disReader.readUTF());
-        }
     }
 
     private static void printCmds() {
@@ -244,33 +250,6 @@ public class Client {
 
         for (int i = 0; i < cmds.length; i++) {
             System.out.println(cmds[i] + ": " + desc[i]);
-        }
-    }
-
-    public void closeEverything(Socket clientServerSocket, DataOutputStream dosWriter, DataInputStream disReader, BufferedWriter bWriter, BufferedReader bReader) {
-        try {
-            if(dosWriter != null) {
-                dosWriter.close();
-            }
-
-            if(disReader != null) {
-                disReader.close();
-            }
-
-            if(bWriter != null) {
-                bWriter.close();
-            }
-
-            if(bReader != null) {
-                bReader.close();
-            }
-
-            if(clientServerSocket != null) {
-                clientServerSocket.close();
-            }
-            System.out.println("Connection ended.");
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 }
