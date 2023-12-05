@@ -1,7 +1,7 @@
 import java.net.*;
 import java.io.*;
 
-public class ServerApp extends Thread{
+public class ServerApp extends Thread {
     private Socket serverClientSocket;
     private int clientNo;
     private String alias;
@@ -28,7 +28,9 @@ public class ServerApp extends Thread{
             e.printStackTrace();
         }
     }
-    private void processClientMessage(String[] message, DataOutputStream dosWriter, DataInputStream disReader) throws IOException {
+
+    private void processClientMessage(String[] message, DataOutputStream dosWriter, DataInputStream disReader)
+            throws IOException {
         switch (message[0]) {
             case "/join" -> dosWriter.writeUTF("Connection to the File Exchange Server is Succesful");
             case "/leave" -> {
@@ -42,7 +44,7 @@ public class ServerApp extends Thread{
             }
             case "/register" -> {
                 alias = message[1];
-                System.out.println("Client " + clientNo  + " is registering.");
+                System.out.println("Client " + clientNo + " is registering.");
                 if (!Server.isAliasRegistered(alias)) {
                     Server.registerAlias(alias);
                     dosWriter.writeUTF("Welcome " + alias);
@@ -75,18 +77,18 @@ public class ServerApp extends Thread{
             FileInputStream fileIS = new FileInputStream(file);
             int bytes;
 
-            //send file's length to client
+            // send file's length to client
             dosWriter.writeLong(file.length());
 
-            //segment the file into chunks
+            // segment the file into chunks
             byte[] buffer = new byte[4 * 1024];
 
-            while((bytes = fileIS.read(buffer)) != -1) {
+            while ((bytes = fileIS.read(buffer)) != -1) {
                 dosWriter.write(buffer, 0, bytes);
                 dosWriter.flush();
             }
 
-            //close the file
+            // close the file
             fileIS.close();
 
             dosWriter.writeUTF("File received from Server: " + fileName);
@@ -95,8 +97,19 @@ public class ServerApp extends Thread{
             dosWriter.writeUTF("Error: File not found in the server.");
         }
     }
-    private static void receiveFile(String fileName, DataOutputStream dosWriter, DataInputStream disReader, String alias) throws IOException{
-        //read file length from server
+
+    public void sendMessageToClient(String msg) {
+        try {
+            DataOutputStream dosWriter = new DataOutputStream(serverClientSocket.getOutputStream());
+            dosWriter.writeUTF("/BCAST/" + msg);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void receiveFile(String fileName, DataOutputStream dosWriter, DataInputStream disReader,
+            String alias) throws IOException {
+        // read file length from server
         long fileSize = disReader.readLong();
 
         if (fileSize > 0) {
@@ -105,16 +118,16 @@ public class ServerApp extends Thread{
             FileOutputStream fileOS = new FileOutputStream(filePath);
             int bytes;
 
-            //segment the file into chunks
+            // segment the file into chunks
             byte[] buffer = new byte[4 * 1024];
 
-            while(fileSize > 0 && (bytes = disReader.read(buffer, 0, (int)Math.min(buffer.length, fileSize))) != -1) {
-                //send file to client socket
+            while (fileSize > 0 && (bytes = disReader.read(buffer, 0, (int) Math.min(buffer.length, fileSize))) != -1) {
+                // send file to client socket
                 fileOS.write(buffer, 0, bytes);
                 fileSize -= bytes;
             }
 
-            //close the file
+            // close the file
             fileOS.close();
 
             dosWriter.writeUTF(alias + Server.log() + ": Uploaded " + fileName);
@@ -142,5 +155,3 @@ public class ServerApp extends Thread{
         }
     }
 }
-
-
