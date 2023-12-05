@@ -7,14 +7,16 @@ public class Client {
         Scanner scanner = new Scanner(System.in);
         String greeting = null;
         Socket clientSocket = null;
+        Socket clientMSocket = null;
         DataInputStream disReader = null;
         DataOutputStream dosWriter = null;
 
+
         System.out.println("Client is ready to connect to a server");
         boolean isRunning = true;
+
         try {
             while(isRunning) {
-                System.out.print("Input: ");
                 String input = scanner.nextLine();
                 String[] inputArr = input.split(" ");
 
@@ -24,10 +26,38 @@ public class Client {
                             try {
                                 if (clientSocket == null) {
                                     clientSocket = new Socket(inputArr[1], Integer.parseInt(inputArr[2]));
+                                    clientMSocket = new Socket(inputArr[1], 5050);
                                     disReader = new DataInputStream(clientSocket.getInputStream());
                                     dosWriter = new DataOutputStream(clientSocket.getOutputStream());
+
                                     dosWriter.writeUTF(input);
                                     System.out.println(disReader.readUTF());
+
+                                    ClientMessage cMessage = new ClientMessage(clientMSocket);
+                                    cMessage.start();
+
+
+//                                    DataInputStream finalDisMReader = disMReader;
+//                                    AtomicBoolean finalIsConnected = new AtomicBoolean(true);
+//                                    new Thread(() -> {
+//                                        try {
+//                                            String message;
+//                                            while(finalIsConnected.get()) {
+//                                                message = finalDisMReader.readUTF();
+//                                                System.out.println(message);
+//                                            }
+//
+//                                        } catch (IOException e) {
+//                                            try {
+//                                                finalDisMReader.close();
+//                                                finalIsConnected.set(false);
+//                                            } catch (IOException ex) {
+//                                                ex.printStackTrace();
+//                                            }
+//                                        }
+//                                    }).start();
+
+
                                 } else {
                                     System.out.println("Error: You're already connected to the server.");
                                 }
@@ -45,6 +75,7 @@ public class Client {
                             }
                         }
                         case "/get" -> {
+
                             if (clientSocket == null) {
                                 System.out.println("Error: Please connect to the server first.");
                             } else if (greeting == null) {
@@ -95,6 +126,18 @@ public class Client {
         } finally {
             if(clientSocket != null) {
                 clientSocket.close();
+            }
+            if(clientMSocket != null) {
+                clientMSocket.close();
+            }
+            if (clientMSocket != null) {
+                clientMSocket.close();
+            }
+            if (dosWriter != null) {
+                dosWriter.close();
+            }
+            if (disReader != null) {
+                disReader.close();
             }
         }
     }

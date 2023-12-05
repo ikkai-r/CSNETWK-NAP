@@ -1,72 +1,84 @@
 import java.net.*;
 import java.io.*;
+import java.util.List;
 
 public class ServerApp extends Thread{
     private Socket serverClientSocket;
+    private Socket serverMClientSocket;
+    private DataInputStream disReader;
+    private DataOutputStream dosWriter;
+    private DataInputStream disMReader;
+    private DataOutputStream dosMWriter;
     private int clientNo;
     private String alias;
     private boolean isRunning = true;
 
-    ServerApp(Socket inSocket, int ClientNo) {
-        serverClientSocket = inSocket;
-        clientNo = ClientNo;
-    }
-
-    public void run() {
+    ServerApp(Socket inSocket, Socket inFSocket, int ClientNo) {
         try {
-            DataInputStream disReader = new DataInputStream(serverClientSocket.getInputStream());
-            DataOutputStream dosWriter = new DataOutputStream(serverClientSocket.getOutputStream());
+            this.serverClientSocket = inSocket;
+            this.serverMClientSocket = inFSocket;
+            this.clientNo = ClientNo;
+            this.disReader = new DataInputStream(serverClientSocket.getInputStream());
+            this.dosWriter = new DataOutputStream(serverClientSocket.getOutputStream());
+            this.disMReader = new DataInputStream(serverMClientSocket.getInputStream());
+            this.dosMWriter = new DataOutputStream(serverMClientSocket.getOutputStream());
 
-            String[] clientMessage;
-
-            while (isRunning) {
-                clientMessage = disReader.readUTF().split(" ");
-                processClientMessage(clientMessage, dosWriter, disReader);
-            }
-
+            broadcastMessage("Broadcast: A new client has entered the server.");
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    private void processClientMessage(String[] message, DataOutputStream dosWriter, DataInputStream disReader) throws IOException {
+
+    public void run() {
+        String[] clientMessage;
+
+        while (isRunning) {
+            try {
+                clientMessage = disReader.readUTF().split(" ");
+                processClientMessage(clientMessage);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void processClientMessage(String[] message) throws IOException {
         switch (message[0]) {
-            case "/join" -> dosWriter.writeUTF("Connection to the File Exchange Server is Succesful");
+            case "/join" -> this.dosWriter.writeUTF("Connection to the File Exchange Server is Succesful");
             case "/leave" -> {
                 System.out.println("Client " + clientNo + " is leaving.");
-                dosWriter.writeUTF("Connection closed. Thank you!");
+                this.dosWriter.writeUTF("Connection closed. Thank you!");
                 isRunning = false;
-                if (alias != null) {
-                    Server.unregisterAlias(alias);
-                }
-                serverClientSocket.close();
+                closeEverything();
             }
             case "/register" -> {
                 alias = message[1];
                 System.out.println("Client " + clientNo  + " is registering.");
                 if (!Server.isAliasRegistered(alias)) {
                     Server.registerAlias(alias);
-                    dosWriter.writeUTF("Welcome " + alias);
+                    this.dosWriter.writeUTF("Welcome " + alias);
+//                    broadcastMessage(alias + " registered. Welcome him!");
                 } else {
-                    dosWriter.writeUTF("Error: Registration failed. Handle or alias already exists.");
+                    this.dosWriter.writeUTF("Error: Registration failed. Handle or alias already exists.");
                 }
             }
             case "/store" -> {
                 System.out.println("Client " + clientNo + " is storing " + message[1]);
-                receiveFile(message[1], dosWriter, disReader, alias);
+                receiveFile(message[1]);
             }
             case "/dir" -> {
                 System.out.println("Client " + clientNo + " is checking directory.");
-                getDirectory(dosWriter);
+                getDirectory();
             }
             case "/get" -> {
                 System.out.println("Client " + clientNo + " is getting " + message[1]);
-                sendFile(message[1], dosWriter);
+                sendFile(message[1]);
 
             }
         }
     }
 
-    private void sendFile(String fileName, DataOutputStream dosWriter) throws IOException {
+    private void sendFile(String fileName) throws IOException {
         String filePath = new File("").getAbsolutePath();
         filePath = filePath.concat("\\serverFiles\\" + fileName);
 
@@ -76,28 +88,29 @@ public class ServerApp extends Thread{
             int bytes;
 
             //send file's length to client
-            dosWriter.writeLong(file.length());
+            this.dosWriter.writeLong(file.length());
 
             //segment the file into chunks
             byte[] buffer = new byte[4 * 1024];
 
             while((bytes = fileIS.read(buffer)) != -1) {
-                dosWriter.write(buffer, 0, bytes);
-                dosWriter.flush();
+                this.dosWriter.write(buffer, 0, bytes);
+                this.dosWriter.flush();
             }
 
             //close the file
             fileIS.close();
 
-            dosWriter.writeUTF("File received from Server: " + fileName);
+            this.dosWriter.writeUTF("File received from Server: " + fileName);
         } else {
-            dosWriter.writeLong(-1);
-            dosWriter.writeUTF("Error: File not found in the server.");
+            this.dosWriter.writeLong(-1);
+            this.dosWriter.writeUTF("Error: File not found in the server.");
         }
     }
-    private static void receiveFile(String fileName, DataOutputStream dosWriter, DataInputStream disReader, String alias) throws IOException{
+
+    private void receiveFile(String fileName) throws IOException{
         //read file length from server
-        long fileSize = disReader.readLong();
+        long fileSize = this.disReader.readLong();
 
         if (fileSize > 0) {
             String filePath = new File("").getAbsolutePath();
@@ -108,7 +121,7 @@ public class ServerApp extends Thread{
             //segment the file into chunks
             byte[] buffer = new byte[4 * 1024];
 
-            while(fileSize > 0 && (bytes = disReader.read(buffer, 0, (int)Math.min(buffer.length, fileSize))) != -1) {
+            while(fileSize > 0 && (bytes = this.disReader.read(buffer, 0, (int)Math.min(buffer.length, fileSize))) != -1) {
                 //send file to client socket
                 fileOS.write(buffer, 0, bytes);
                 fileSize -= bytes;
@@ -117,11 +130,11 @@ public class ServerApp extends Thread{
             //close the file
             fileOS.close();
 
-            dosWriter.writeUTF(alias + Server.log() + ": Uploaded " + fileName);
+            this.dosWriter.writeUTF(this.alias + Server.log() + ": Uploaded " + fileName);
         }
     }
 
-    private static void getDirectory(DataOutputStream dosWriter) throws IOException {
+    private void getDirectory() throws IOException {
         String folderPath = new File("").getAbsolutePath() + "\\serverFiles";
         File folder = new File(folderPath);
 
@@ -130,10 +143,10 @@ public class ServerApp extends Thread{
             File[] files = folder.listFiles();
 
             if (files != null) {
-                dosWriter.writeInt(files.length);
+                this.dosWriter.writeInt(files.length);
                 for (File file : files) {
                     if (file.isFile()) {
-                        dosWriter.writeUTF(file.getName());
+                        this.dosWriter.writeUTF(file.getName());
                     }
                 }
             }
@@ -141,6 +154,48 @@ public class ServerApp extends Thread{
             System.out.println("The serverFiles folder does not exist or is not a directory.");
         }
     }
+
+    private void broadcastMessage(String message) {
+        List<ServerApp> serverApps = Server.getServerApps();
+        for (ServerApp serverApp : serverApps) {
+            try {
+                serverApp.dosMWriter.writeUTF(message);
+                serverApp.dosMWriter.flush();
+            } catch (IOException e) {
+                closeEverything();
+            }
+        }
+    }
+
+    private void closeEverything() {
+        Server.removeServerApp(this);
+        try {
+            if (this.dosWriter != null) {
+                this.dosWriter.close();
+            }
+            if (this.disReader != null) {
+                this.disReader.close();
+            }
+            if (this.disMReader != null) {
+                this.disMReader.close();
+            }
+            if (this.dosMWriter != null) {
+                this.dosMWriter.close();
+            }
+            if (serverClientSocket != null) {
+                serverClientSocket.close();
+            }
+            if (serverMClientSocket != null) {
+                serverMClientSocket.close();
+            }
+            if (alias != null) {
+                Server.unregisterAlias(alias);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
 
 
