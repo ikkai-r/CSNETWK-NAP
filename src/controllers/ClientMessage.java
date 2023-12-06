@@ -1,3 +1,6 @@
+package src.controllers;
+
+import javax.swing.*;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -9,11 +12,14 @@ public class ClientMessage extends Thread{
         private DataOutputStream dosMWriter;
         private boolean isConnected = true;
 
-        ClientMessage(Socket clientMSocket) {
+        private JTextArea textArea1;
+
+        ClientMessage(Socket clientMSocket, JTextArea textArea1) {
             try {
                     this.clientMSocket = clientMSocket;
                     this.disMReader = new DataInputStream(clientMSocket.getInputStream());
                     this.dosMWriter = new DataOutputStream(clientMSocket.getOutputStream());
+                    this.textArea1 = textArea1;
             } catch (IOException e) {
                     e.printStackTrace();
             }
@@ -24,7 +30,7 @@ public class ClientMessage extends Thread{
                 try {
                     String message;
                     message = disMReader.readUTF();
-                    System.out.println(message);
+                    textArea1.append(message);
                 } catch (IOException e) {
                     closeEverything();
                 }

@@ -1,3 +1,6 @@
+package src.controllers;
+
+import javax.swing.*;
 import java.net.*;
 import java.io.*;
 import java.util.List;
@@ -12,8 +15,9 @@ public class ServerApp extends Thread{
     private int clientNo;
     private String alias;
     private boolean isRunning = true;
+    private JTextArea textArea1;
 
-    ServerApp(Socket inSocket, Socket inFSocket, int ClientNo) {
+    ServerApp(Socket inSocket, Socket inFSocket, int ClientNo, JTextArea textArea1) {
         try {
             this.serverClientSocket = inSocket;
             this.serverMClientSocket = inFSocket;
@@ -22,8 +26,9 @@ public class ServerApp extends Thread{
             this.dosWriter = new DataOutputStream(serverClientSocket.getOutputStream());
             this.disMReader = new DataInputStream(serverMClientSocket.getInputStream());
             this.dosMWriter = new DataOutputStream(serverMClientSocket.getOutputStream());
+            this.textArea1 = textArea1;
 
-            broadcastMessage("Broadcast: A new client has entered the server.");
+            broadcastMessage("Broadcast: A new client has entered the server. \n");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -44,34 +49,36 @@ public class ServerApp extends Thread{
 
     private void processClientMessage(String[] message) throws IOException {
         switch (message[0]) {
-            case "/join" -> this.dosWriter.writeUTF("Connection to the File Exchange Server is Succesful");
+            case "/join" ->
+            {
+                this.dosWriter.writeUTF("Server: Connection to the File Exchange Server is Successful" + "\n");
+            }
             case "/leave" -> {
-                System.out.println("Client " + clientNo + " is leaving.");
-                this.dosWriter.writeUTF("Connection closed. Thank you!");
+                textArea1.append("Client " + clientNo + " is leaving. \n");
+                this.dosWriter.writeUTF("Server: Connection closed. Thank you! \n");
                 isRunning = false;
                 closeEverything();
             }
             case "/register" -> {
                 alias = message[1];
-                System.out.println("Client " + clientNo  + " is registering.");
+                textArea1.append("Client " + clientNo  + " is registering. \n");
                 if (!Server.isAliasRegistered(alias)) {
                     Server.registerAlias(alias);
-                    this.dosWriter.writeUTF("Welcome " + alias);
-//                    broadcastMessage(alias + " registered. Welcome him!");
+                    this.dosWriter.writeUTF("Server: Welcome " + alias + "\n");
                 } else {
-                    this.dosWriter.writeUTF("Error: Registration failed. Handle or alias already exists.");
+                    this.dosWriter.writeUTF("Error: Registration failed. Handle or alias already exists. \n");
                 }
             }
             case "/store" -> {
-                System.out.println("Client " + clientNo + " is storing " + message[1]);
+                textArea1.append("Client " + clientNo + " is storing " + message[1] + "\n");
                 receiveFile(message[1]);
             }
             case "/dir" -> {
-                System.out.println("Client " + clientNo + " is checking directory.");
+                textArea1.append("Client " + clientNo + " is checking directory. \n");
                 getDirectory();
             }
             case "/get" -> {
-                System.out.println("Client " + clientNo + " is getting " + message[1]);
+                textArea1.append("Client " + clientNo + " is getting " + message[1] + "\n");
                 sendFile(message[1]);
 
             }
@@ -80,7 +87,7 @@ public class ServerApp extends Thread{
 
     private void sendFile(String fileName) throws IOException {
         String filePath = new File("").getAbsolutePath();
-        filePath = filePath.concat("\\serverFiles\\" + fileName);
+        filePath = filePath.concat("\\src\\controllers\\serverFiles\\" + fileName);
 
         File file = new File(filePath);
         if (file.exists()) {
@@ -101,10 +108,10 @@ public class ServerApp extends Thread{
             //close the file
             fileIS.close();
 
-            this.dosWriter.writeUTF("File received from Server: " + fileName);
+            this.dosWriter.writeUTF("Server: File received from Server: " + fileName + "\n");
         } else {
             this.dosWriter.writeLong(-1);
-            this.dosWriter.writeUTF("Error: File not found in the server.");
+            this.dosWriter.writeUTF("Server: Error: File not found in the server. \n");
         }
     }
 
@@ -114,7 +121,7 @@ public class ServerApp extends Thread{
 
         if (fileSize > 0) {
             String filePath = new File("").getAbsolutePath();
-            filePath = filePath.concat("\\serverFiles\\" + fileName);
+            filePath = filePath.concat("\\src\\controllers\\serverFiles\\" + fileName);
             FileOutputStream fileOS = new FileOutputStream(filePath);
             int bytes;
 
@@ -130,15 +137,14 @@ public class ServerApp extends Thread{
             //close the file
             fileOS.close();
 
-            this.dosWriter.writeUTF(this.alias + Server.log() + ": Uploaded " + fileName);
+            this.dosWriter.writeUTF("Server: " + this.alias + Server.log() + ": Uploaded " + fileName + "\n");
         }
     }
 
     private void getDirectory() throws IOException {
-        String folderPath = new File("").getAbsolutePath() + "\\serverFiles";
+        String folderPath = new File("").getAbsolutePath() + "\\src\\controllers\\serverFiles";
         File folder = new File(folderPath);
 
-        System.out.println(folderPath);
         if (folder.exists() && folder.isDirectory()) {
             File[] files = folder.listFiles();
 
@@ -146,12 +152,12 @@ public class ServerApp extends Thread{
                 this.dosWriter.writeInt(files.length);
                 for (File file : files) {
                     if (file.isFile()) {
-                        this.dosWriter.writeUTF(file.getName());
+                        this.dosWriter.writeUTF(file.getName() + "\n");
                     }
                 }
             }
         } else {
-            System.out.println("The serverFiles folder does not exist or is not a directory.");
+            textArea1.append("The serverFiles folder does not exist or is not a directory.\n");
         }
     }
 
